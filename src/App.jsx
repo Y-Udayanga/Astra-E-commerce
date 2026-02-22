@@ -1,18 +1,48 @@
+
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
-import Header from './components/Header';
-import Footer from './components/Footer';
-import ChatWidget from './components/ChatWidget';
+import { CartProvider } from './context/CartContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+
+// Layouts
+import MainLayout from './layouts/MainLayout';
+import AdminLayout from './layouts/AdminLayout';
+
+// Public Pages
 import Home from './pages/Home';
 import Shop from './pages/Shop';
 import ProductDetails from './pages/ProductDetails';
-import { CartProvider } from './context/CartContext';
-import CartDrawer from './components/CartDrawer';
 import Checkout from './pages/Checkout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Sell from './pages/Sell';
+
+// Admin Pages
+import Dashboard from './pages/admin/Dashboard';
+import Products from './pages/admin/Products';
+import Orders from './pages/admin/Orders';
+import Customers from './pages/admin/Customers';
+import Settings from './pages/admin/Settings';
+
+// Protected Route Component
+const ProtectedRoute = ({ children, adminOnly = false }) => {
+  const { currentUser, loading } = useAuth();
+
+  if (loading) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (adminOnly && currentUser.role !== 'admin') {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -20,13 +50,32 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
-        <Route path="/" element={<Home />} />
-        <Route path="/shop" element={<Shop />} />
-        <Route path="/product/:id" element={<ProductDetails />} />
-        <Route path="/checkout" element={<Checkout />} />
+        {/* Public Routes with MainLayout */}
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/shop" element={<Shop />} />
+          <Route path="/product/:id" element={<ProductDetails />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/sell" element={<Sell />} />
+        </Route>
+
+        {/* Auth Routes (No Layout) */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/sell" element={<Sell />} />
+
+        {/* Admin Routes with AdminLayout */}
+        <Route path="/admin" element={
+          <ProtectedRoute adminOnly={true}>
+            <AdminLayout />
+          </ProtectedRoute>
+        }>
+          <Route index element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="products" element={<Products />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="customers" element={<Customers />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
       </Routes>
     </AnimatePresence>
   );
@@ -34,19 +83,13 @@ const AnimatedRoutes = () => {
 
 function App() {
   return (
-    <CartProvider>
-      <Router>
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', backgroundColor: 'var(--color-background)' }}>
-          <Header />
-          <main style={{ flex: 1, position: 'relative' }}>
-            <AnimatedRoutes />
-          </main>
-          <Footer />
-          <CartDrawer />
-          <ChatWidget />
-        </div>
-      </Router>
-    </CartProvider>
+    <AuthProvider>
+      <CartProvider>
+        <Router>
+          <AnimatedRoutes />
+        </Router>
+      </CartProvider>
+    </AuthProvider>
   );
 }
 
